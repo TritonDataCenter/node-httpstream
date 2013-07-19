@@ -322,5 +322,5 @@ function fetchNext(req, res, t, state, offset)
 	    state['nbytesread'] + chunk));
 	state['nbytesread'] += chunk;
 	log.debug('test server: request completed', chunk, code, headers);
-	req.socket.setTimeout(500);
+	req.socket.setTimeout(1000);
 }
