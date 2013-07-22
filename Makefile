@@ -27,7 +27,7 @@ all:
 	npm install
 
 test:
-	(set -o pipefail; node tests/tst.basic.js | bunyan -o short)
+	(set -o pipefail; node tests/tst.httpstream.js | bunyan -o short)
 	@echo tests passed
 
 include ./Makefile.targ

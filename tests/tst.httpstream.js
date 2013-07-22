@@ -1,5 +1,5 @@
 /*
- * tst.basic.js: exercise both common and edge cases of the httpstream.
+ * tst.httpstream.js: exercise both common and edge cases of the httpstream.
  */
 
 var mod_assert = require('assert');
@@ -88,7 +88,7 @@ mod_vasync.pipeline({
 	/* Set up global objects */
 	function (_, callback) {
 		log = new mod_bunyan({
-		    'name': 'tst.basic.js',
+		    'name': 'tst.httpstream.js',
 		    'level': process.env['LOG_LEVEL'] || 'debug',
 		    'serializers': {}
 		});
