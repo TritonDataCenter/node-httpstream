@@ -1,6 +1,6 @@
 {
 	"name": "httpstream",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Reliable Readable stream for HTTP resources",
 	"main": "./lib/httpstream.js",
 

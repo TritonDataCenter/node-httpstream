@@ -12,6 +12,7 @@ var log = new mod_bunyan({
     'level': 'warn',
     'serializers': {}
 });
+
 var client = mod_restify.createClient({
     'url': 'https://us-east.manta.joyent.com',
     'log': log,
