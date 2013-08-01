@@ -78,6 +78,22 @@ var test_cases = {
 	    1024
 	],
 	'error': /object changed while fetching \(etag mismatch\)/
+    },
+    'transient_500': {
+	'chunks': [
+	    128, 'error_500', 256, 'error_503', 128, 'error_500', 1024,
+	        'error_503', 57
+	]
+    },
+    'persistent_500': {
+	'chunks': [
+	    128, 'error_500', 'error_503', 'error_503', 517
+	],
+	'error': /ServiceUnavailableError/
+    },
+    'error_400': {
+	'chunks': [ 'error_400', 128 ],
+	'error': /BadRequestError/
     }
 };
 var test_state = {};	/* server-side state, indexed by test case name */
@@ -118,10 +134,15 @@ mod_vasync.pipeline({
 
 	/* Run the test cases in sequence. */
 	function (_, callback) {
-		var funcs = [];
-		for (var k in test_cases)
-			funcs.push(runTestCase.bind(null, k, test_cases[k]));
-
+		var tests_to_run = process.argv.slice(2);
+		if (tests_to_run.length === 0)
+			tests_to_run = Object.keys(test_cases);
+		var funcs = tests_to_run.map(function (k) {
+			if (!test_cases.hasOwnProperty(k))
+				throw (new VError(
+				    'unknown test name: "%s"', k));
+			return (runTestCase.bind(null, k, test_cases[k]));
+		});
 		mod_vasync.pipeline({ 'funcs': funcs }, callback);
 	},
 
@@ -153,7 +174,12 @@ function runTestCase(name, t, _, callback)
 	    'client': client,
 	    'path': '/' + name,
 	    'log': log,
-	    'highWaterMark': 1024 * 1024
+	    'highWaterMark': 1024 * 1024,
+	    'retryPolicy': {
+		'retries': 2,
+		'minTimeout': 500,
+		'maxTimeout': 2000
+	    }
 	});
 
 	buf = new Buffer(0);
@@ -169,7 +195,8 @@ function runTestCase(name, t, _, callback)
 	stream.on('data', function (chunk) { buf += chunk; });
 
 	stream.on('error', function (err) {
-		if (t['error'] && t['error'].test(err.message)) {
+		if (t['error'] && t['error'].test(
+		    err.name + ': ' + err.message)) {
 			log.debug(err, 'test "%s": found expected error', name);
 			callback();
 			return;
@@ -293,6 +320,12 @@ function fetchNext(req, res, t, state, offset)
 	    'client requested past the end of the object');
 
 	chunk = t['chunks'][i];
+	if (typeof (chunk) == 'string' && chunk.substr(0, 6) == 'error_') {
+		code = parseInt(chunk.substr(6), 10);
+		res.writeHead(code);
+		res.end();
+		return;
+	}
 	if (chunk == 'change_etag') {
 		if (state['etag'] == 'etag0')
 			state['etag'] = 'etag1';
@@ -322,5 +355,5 @@ function fetchNext(req, res, t, state, offset)
 	    state['nbytesread'] + chunk));
 	state['nbytesread'] += chunk;
 	log.debug('test server: request completed', chunk, code, headers);
-	req.socket.setTimeout(1000);
+	req.socket.setTimeout(2000);
 }
