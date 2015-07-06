@@ -168,7 +168,7 @@ mod_vasync.pipeline({
  */
 function runTestCase(name, t, _, callback)
 {
-	var stream, buf;
+	var stream, str, nbytes;
 
 	stream = new mod_httpstream({
 	    'client': client,
@@ -182,17 +182,24 @@ function runTestCase(name, t, _, callback)
 	    }
 	});
 
-	buf = new Buffer(0);
+	str = '';
+	nbytes = 0;
 
 	log.info('test "%s": start', name);
 
 	/*
-	 * Accumulate all the data in "buf".  If there's an error, make sure it
+	 * Accumulate all the data in "str".  If there's an error, make sure it
 	 * matches what we expect.  If there wasn't, make sure there wasn't
 	 * supposed to be, and also make sure the data we received matched the
 	 * expected md5sum.
 	 */
-	stream.on('data', function (chunk) { buf += chunk; });
+	stream.on('data', function (chunk) {
+		str += chunk.toString('utf8');
+		nbytes += chunk.length;
+		if (nbytes === chunk.length)
+			log.debug('got chunk of %d bytes (%d total)',
+			    chunk.length, nbytes);
+	});
 
 	stream.on('error', function (err) {
 		if (t['error'] && t['error'].test(
@@ -220,7 +227,7 @@ function runTestCase(name, t, _, callback)
 			return;
 		}
 
-		mod_assert.equal(buf.toString('utf8'),
+		mod_assert.equal(str,
 		    test_state[name]['raw'].toString('utf8'));
 		log.info('test "%s": done: data matched up', name);
 		callback();
@@ -266,6 +273,7 @@ function handleRequest(req, res)
 				expected_length += c;
 		});
 
+		log.debug('test server: building buffer');
 		buf = new Buffer(expected_length);
 		clow = 'a'.charCodeAt(0);
 		chigh = 'z'.charCodeAt(0);
@@ -283,6 +291,7 @@ function handleRequest(req, res)
 		    'next_chunk': 0			/* expected entry in */
 							/* t['chunks'] */
 		};
+		log.debug('test server: buffer ready');
 	} else {
 		/*
 		 * Again, this is overly rigid, but we're testing that our own
@@ -355,5 +364,5 @@ function fetchNext(req, res, t, state, offset)
 	    state['nbytesread'] + chunk));
 	state['nbytesread'] += chunk;
 	log.debug('test server: request completed', chunk, code, headers);
-	req.socket.setTimeout(2000);
+	req.socket.setTimeout(3000);
 }
